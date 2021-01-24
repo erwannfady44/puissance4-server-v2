@@ -7,6 +7,7 @@ const keyToken = 'TOKEN';
 exports.signup = (req, res, next) => {
     bcrypt.hash(req.body.password, 10)
         .then(hash => {
+            console.log(hash);
             const player = new Player({
                 pseudo: req.body.pseudo,
                 password: hash,
@@ -14,10 +15,22 @@ exports.signup = (req, res, next) => {
                 defeat: 0,
             });
             player.save()
-                .then(() => res.status(201).json({message: 'Player created'}))
-                .catch(error => res.status(400).json(error))
+                .then(player => {
+                    res.status(201).json({
+                        token: jwt.sign(
+                            {idPlayer: player._id, pseudo: player.pseudo},
+                            keyToken,
+                            {expiresIn: '1h'}
+                        )
+                    });
+                })
+                .catch(error => res.status(409).json({
+                    error: 'Pseudo already used'
+                }));
         })
-        .catch(error => res.status(500).json({error}));
+        .catch(error => {
+            res.status(500).json({error: error.message})
+        });
 };
 
 exports.login = (req, res, next) => {
@@ -35,9 +48,9 @@ exports.login = (req, res, next) => {
                         res.status(200).json({
                             userId: player._id,
                             token: jwt.sign(
-                                { playerId: player._id },
+                                {playerId: player._id},
                                 keyToken,
-                                { expiresIn: '24h' }
+                                {expiresIn: '24h'}
                             )
                         });
                     })
